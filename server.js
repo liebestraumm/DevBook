@@ -1,4 +1,5 @@
 import express from 'express';
+
 import connectDB from './config/db.js';
 import usersRoute from './routes/api/users.js';
 import authRoute from './routes/api/auth.js';
@@ -9,6 +10,11 @@ const app = express();
 
 //Connect Database
 connectDB();
+
+//Initialize Middleware
+app.use(express.json({
+    extended: false
+}));
 
 const PORT = process.env.PORT || 5000;
 
