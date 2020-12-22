@@ -2,7 +2,10 @@ import express from 'express';
 import {check, validationResult} from 'express-validator';
 import bcrypt from 'bcryptjs';
 import gravatar from 'gravatar';
-//Calling User model
+import jwt from 'jsonwebtoken';
+import config from 'config';
+
+//Importing User model
 import User from '../../models/User.js';
 
 const router = express.Router();
@@ -32,6 +35,8 @@ router.post('/', [
 
     // See if user exists
     console.log(User)
+
+    //Queries user by email
     let user = await User.findOne({
         email : email
     });
@@ -64,10 +69,19 @@ router.post('/', [
     await user.save();
 
     // Return jsonwebtoken
-
-
-    res.send('User registered');
-
+    const payload = {
+        user: {
+            id: user.id
+        }
+    }
+    jwt.sign(payload, 
+            config.get('jwtSecret'),
+            { expiresIn: 360000 }, (err, token) => {
+                //If error, throws an error. If no error, it sends the token back to the client giving access
+                if(err) 
+                    throw err
+                res.json({ token });
+            });
     }
 
     catch(err) {
