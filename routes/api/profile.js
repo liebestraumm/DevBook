@@ -3,6 +3,8 @@ import auth from '../../middleware/auth.js';
 import Profile from '../../models/Profile.js';
 import User from '../../models/User.js';
 import { check, validationResult } from 'express-validator';
+import request from 'request';
+import config from 'config';
 
 const router = express.Router();
 
@@ -290,4 +292,145 @@ router.delete('/experience/:exp_id', auth, async (req, res) => {
         res.status(500).send('Server Error');
     }
 });
+
+//@route        PUT api/profile/education
+//@desc         Add education to profile
+//@access       Private
+router.put('/education', [auth, [
+    check('school', 'School name is Required').not().isEmpty(),
+    check('degree', 'Degree type is required').not().isEmpty(),
+    check('fieldofstudy', 'Field of Study is required').not().isEmpty(),
+    check('from', 'Start date of education is required').not().isEmpty()
+]], async (req, res) => {
+    const errors = validationResult(req);
+    if(!errors.isEmpty()){
+        return res.status(400).json({
+            errors: errors.array()
+        });
+    }
+    //Create Education Object
+    const {
+        school,
+        degree,
+        fieldofstudy,
+        from,
+        to,
+        current,
+        description
+    } = req.body
+
+    const newEducation = {
+        school,
+        degree,
+        fieldofstudy,
+        from,
+        to,
+        current,
+        description
+    }
+
+    try{
+        const profile = await Profile.findOne({
+            user: req.user.id
+        });
+
+        profile.education.unshift(newEducation);
+        await profile.save();
+        res.json(profile);
+    }
+    catch(err) {
+        console.log(err);
+        res.status(500).send('Server Error');
+    }
+
+});
+
+//@route        DELETE api/profile/education/:education_id
+//@desc         Delete education in profile
+//@access       Private
+router.delete('/education/:education_id', auth, async (req, res) => {
+    try{
+        let flag = false;
+        const profile = await Profile.findOne({
+            user: req.user.id
+        });
+
+        profile.education = await profile.education.filter(education => {
+            if( education._id != req.params.education_id ){
+                return education
+            }
+            else
+                flag = true;
+          });
+        await profile.save();
+        if(flag){
+            // res.json({
+            //     info: {
+            //         msg: "Education deleted"
+            //     }
+            // });
+            res.json(profile);
+        }
+        else{
+            res.json({
+                info: {
+                    msg: "Edcuation not found. Education not deleted."
+                }
+            });
+        }
+    }
+
+    catch(err) {
+        console.log(err.message);
+        if(err.kind == 'ObjectId') {
+            return res.status(400).json({
+                errors: [{
+                    msg: "This education doesn't exist"
+                }]
+            });
+        }
+
+        res.status(500).send('Server Error');
+    }
+});
+
+//@route        GET api/profile/github/:username
+//@desc         Get user repos from GitHub
+//@access       Public
+router.get('/github/:username', (req, res) => {
+    try {
+        const options = {
+            uri: encodeURI(
+              `https://api.github.com/users/${req.params.username}/repos?per_page=5&sort=created:asc`
+            ),
+            method: 'GET',
+            headers: {
+              'user-agent': 'node.js',
+              Authorization: `token ${config.get('githubToken')}`
+            }
+          };
+
+          request(options, (error, response, body) => {
+              if(error)
+                console.log(error);
+              else{
+                  if(response.statusCode !== 200) {
+                      return res.status(404).json({
+                          errors: [{
+                             msg: 'No Github profile found'
+                          }]
+                      });
+                  }
+                  //Parsing body data string to JSON
+                  res.json(JSON.parse(body));
+              }
+          })
+    }
+
+    catch(err) {
+        console.log(err.message);
+        res.status(500).send("Server Error");
+    }
+})
+
 export default router;
