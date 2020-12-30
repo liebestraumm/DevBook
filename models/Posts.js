@@ -17,14 +17,18 @@ const PostSchema = new mongoose.Schema ({
     },
     likes: [
         {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'user'
+            user: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'user'
+            }
         }
     ],
     comments: [
         {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'user',
+            user: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'user'
+            },
             text: {
                 type: String,
                 required: true

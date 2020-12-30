@@ -4,7 +4,6 @@ import auth from '../../middleware/auth.js';
 import Post from '../../models/Posts.js';
 import User from '../../models/User.js';
 import Profile from '../../models/Profile.js';
-import Posts from '../../models/Posts.js';
 
 const router = express.Router();
 
@@ -143,4 +142,87 @@ router.delete('/:post_id', auth, async (req, res) => {
         res.status(500).send("Server Error");
     }
 });
+
+//@route        PUT api/posts/like/:user_id
+//@desc         Like a post
+//@access       Private
+router.put('/like/:post_id', auth, async (req, res) => {
+    try{
+        //Check if the post has been already liked
+        let post = await Post.findById(req.params.post_id);
+
+        const checkLikes = post.likes.filter(a => a.user.toString() === req.user.id).length > 0; 
+        if(checkLikes) {
+            return res.status(400).json({
+                error: [{
+                    msg: 'Post Liked Already'
+                }]
+            });
+        }
+        await post.likes.unshift({ 
+            user: req.user.id
+        });
+
+        await post.save();
+        res.json(post.likes);
+    }   
+
+    catch(err) {
+        console.log(err.message);
+        if(err.kind == 'ObjectId')
+            res.status(400).json({
+                error: [{
+                    msg: "Post doesn't exist"
+                }]
+            });
+        res.status(500).send('Server Error');
+    }
+});
+
+//@route        PUT api/posts/unlike/:user_id
+//@desc         Unlike a post
+//@access       Private
+router.put('/unlike/:post_id/:like_id', auth, async (req, res) => {
+    try{
+        let flag = false;
+        //Check if the post has been already liked
+        let post = await Post.findById(req.params.post_id);
+
+        post.likes = post.likes.filter(like => {
+            if (like._id == req.params.like_id)
+                flag = true
+            else
+                return like
+        });
+        await post.save();
+
+        if(flag) {
+            res.json({
+                info: [{
+                    msg: "Post unliked"
+                }]
+            });
+        }
+
+        else {
+            res.status(400).json({
+                info: [{
+                    msg: "Post doesn't exist"
+                }]
+            });
+        }
+        // res.json(post.likes);
+    }   
+
+    catch(err) {
+        console.log(err.message);
+        if(err.kind == 'ObjectId')
+            res.status(400).json({
+                error: [{
+                    msg: "Post doesn't exist"
+                }]
+            });
+        res.status(500).send('Server Error');
+    }
+})
 export default router;
