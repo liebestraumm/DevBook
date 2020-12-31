@@ -224,5 +224,119 @@ router.put('/unlike/:post_id/:like_id', auth, async (req, res) => {
             });
         res.status(500).send('Server Error');
     }
-})
+});
+
+//@route        POST api/posts/comment/:post_id
+//@desc         Comment on a post
+//@access       Private
+router.post('/comment/:post_id', [auth, [
+    check('text', 'Text is Required').not().isEmpty()
+]], async (req, res) => {
+    const errors = validationResult(req);
+
+    if(!errors.isEmpty())
+        return res.status(400).json({
+            errors: errors.array()
+        });
+    
+    try {
+        
+    const user = await User.findById({
+        _id: req.user.id
+    }).select('-password');
+
+    const post = await Post.findById(req.params.post_id);
+    if(!post)
+        return res.status(400).json({
+            errors: [{
+                msg: "Post doesn't exist. Comment not added"
+            }]
+        });
+    //Create comment fields
+    const commentFields = {
+        user: user.id,
+        text: req.body.text,
+        name: user.name,
+        avatar: user.avatar
+    }
+
+    post.comments.push(commentFields);
+    await post.save();
+    res.json({
+        info: [{
+            msg: "Comment added"
+        }]
+    });
+    }
+
+    catch(err){
+        console.log(err.message);
+        if(err.kind === 'ObjectId')
+            return res.status(400).json({
+                errors: [{
+                    msg: "Post doesn't exist. Comment not added"
+                }]
+            });
+        res.status(500).send('Server Error');
+    }
+
+});
+
+//@route        PUT api/posts/comment/:post_id/:comment_id
+//@desc         Delete a comment
+//@access       Private
+router.put('/comment/:post_id/:comment_id', auth, async (req, res) => {
+    const errors = validationResult(req);
+
+    if(!errors.isEmpty())
+        return res.status(400).json({
+            errors: errors.array()
+        });
+    
+    try {
+
+    const post = await Post.findById(req.params.post_id);
+    // const comment = await post.comments.filter(comment => comment._id == req.params.comment_id).length > 0;
+    const comment = await post.comments.find(comment => comment._id == req.params.comment_id);
+    if(!post)
+        return res.status(400).json({
+            errors: [{
+                msg: "Post doesn't exist. Comment not deleted"
+            }]
+        });
+
+    if(!comment)
+    return res.status(400).json({
+        errors: [{
+            msg: "Comment doesn't exist. Comment not deleted"
+        }]
+    });
+    
+    if(comment.user != req.user.id)
+        return res.status(401).json({
+            errors: [{
+                msg: "User not authorized"
+            }]
+        })
+    post.comments = post.comments.filter(comment => comment._id != req.params.comment_id);
+    await post.save();
+    res.json({
+        info: [{
+            msg: "Comment deleted"
+        }]
+    });
+    }
+
+    catch(err){
+        console.log(err.message);
+        if(err.kind === 'ObjectId')
+            return res.status(400).json({
+                errors: [{
+                    msg: "Post doesn't exist. Comment not deleted"
+                }]
+            });
+        res.status(500).send('Server Error');
+    }
+
+});
 export default router;
